@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Visualization Dashboard</title>
+  
+  <!-- Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+  
+  <!-- Tailwind CSS for styling (Shadcn UI compatible) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="container mx-auto p-6">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">Data Visualization Dashboard</h1>
+      <p class="text-gray-600">Interactive charts and data from Google Sheets</p>
+    </header>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+    </div>
+
+    <div id="content" style="display: none;">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Chart Container -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h2 class="text-xl font-semibold mb-4">Bar Chart</h2>
+          <canvas id="barChart"></canvas>
+        </div>
+
+        <!-- Pie Chart Container -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+          <h2 class="text-xl font-semibold mb-4">Pie Chart</h2>
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Data Table Container -->
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Data Table</h2>
+        <div class="overflow-x-auto">
+          <table id="dataTable" class="min-w-full table-auto border-collapse border border-gray-300">
+            <thead id="tableHeader" class="bg-gray-100"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="error" style="display: none;" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <strong>Error:</strong> <span id="errorMessage"></span>
+    </div>
+  </div>
+
+  <script>
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      google.script.run
+        .withSuccessHandler(handleData)
+        .withFailureHandler(handleError)
+        .getData();
+    });
+
+    function handleData(data) {
+      document.getElementById('loading').style.display = 'none';
+      
+      if (data && data.length > 0) {
+        document.getElementById('content').style.display = 'block';
+        renderCharts(data);
+        renderTable(data);
+      } else {
+        handleError('No data found in the spreadsheet');
+      }
+    }
+
+    function handleError(error) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('errorMessage').textContent = error;
+    }
+
+    function renderCharts(data) {
+      if (data.length < 2) return;
+
+      const headers = data[0];
+      const rows = data.slice(1);
+
+      // Prepare data for charts
+      const labels = headers.slice(1); // Skip first column
+      const datasets = rows.map(row => ({
+        label: row[0],
+        data: row.slice(1).map(val => parseFloat(val) || 0),
+        backgroundColor: generateColors(rows.length)
+      }));
+
+      // Bar Chart
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // Pie Chart (using first row of data)
+      if (rows.length > 0) {
+        const pieCtx = document.getElementById('pieChart').getContext('2d');
+        new Chart(pieCtx, {
+          type: 'pie',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: rows[0].slice(1).map(val => parseFloat(val) || 0),
+              backgroundColor: generateColors(labels.length)
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function renderTable(data) {
+      const table = document.getElementById('dataTable');
+      const header = document.getElementById('tableHeader');
+      const body = document.getElementById('tableBody');
+
+      // Clear existing content
+      header.innerHTML = '';
+      body.innerHTML = '';
+
+      if (data.length === 0) return;
+
+      // Create header
+      const headerRow = document.createElement('tr');
+      data[0].forEach(cell => {
+        const th = document.createElement('th');
+        th.textContent = cell;
+        th.className = 'border border-gray-300 px-4 py-2 text-left font-semibold';
+        headerRow.appendChild(th);
+      });
+      header.appendChild(headerRow);
+
+      // Create body rows
+      data.slice(1).forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+        row.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          td.className = 'border border-gray-300 px-4 py-2';
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+    }
+
+    function generateColors(count) {
+      const colors = [
+        'rgba(75, 192, 192, 0.6)',
+        'rgba(255, 99, 132, 0.6)',
+        'rgba(54, 162, 235, 0.6)',
+        'rgba(255, 205, 86, 0.6)',
+        'rgba(153, 102, 255, 0.6)',
+        'rgba(255, 159, 64, 0.6)',
+        'rgba(199, 199, 199, 0.6)',
+        'rgba(83, 102, 255, 0.6)'
+      ];
+      
+      return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+    }
+  </script>
+</body>
+</html>
