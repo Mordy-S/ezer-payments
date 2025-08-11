@@ -1,0 +1,678 @@
+<script>
+/**
+ * JavaScript for Donations Dashboard
+ * Enhanced with real-time updates and better UX
+ */
+
+// Global variables
+let dashboardData = null;
+let filteredData = null;
+let currentSort = { column: null, direction: 'asc' };
+let updateInterval = null;
+let isAutoRefreshEnabled = false;
+
+// Initialize dashboard when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard initializing...');
+    initializeDashboard();
+    setupEventListeners();
+    setupAutoRefresh();
+});
+
+/**
+ * Initialize the dashboard
+ */
+function initializeDashboard() {
+    showLoadingState();
+    loadDashboardData();
+}
+
+/**
+ * Setup event listeners
+ */
+function setupEventListeners() {
+    // Refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            console.log('Refresh clicked');
+            refreshData();
+        });
+    }
+
+    // Retry button
+    const retryBtn = document.getElementById('retryBtn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', function() {
+            console.log('Retry clicked');
+            initializeDashboard();
+        });
+    }
+
+    // Search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(filterTable, 300));
+    }
+
+    // Filter select
+    const filterSelect = document.getElementById('filterSelect');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', function() {
+            filterTable();
+        });
+    }
+}
+
+/**
+ * Setup auto-refresh functionality
+ */
+function setupAutoRefresh() {
+    // Auto-refresh every 5 minutes
+    updateInterval = setInterval(() => {
+        if (isAutoRefreshEnabled && dashboardData) {
+            console.log('Auto-refreshing data...');
+            loadDashboardData(false); // Silent refresh
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    isAutoRefreshEnabled = true;
+}
+
+/**
+ * Refresh data with user feedback
+ */
+function refreshData() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    const connectionStatus = document.getElementById('connectionStatus');
+    
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = '🔄 Loading...';
+        refreshBtn.classList.add('loading-skeleton');
+    }
+    
+    if (connectionStatus) {
+        connectionStatus.className = 'status-indicator status-pending';
+        connectionStatus.textContent = '⏳ Updating...';
+    }
+    
+    loadDashboardData();
+}
+
+/**
+ * Debounce function for search input
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+/**
+ * Load dashboard data from Google Sheets
+ */
+function loadDashboardData(showLoading = true) {
+    console.log('Loading dashboard data...');
+    
+    if (showLoading) {
+        showLoadingState();
+    }
+    
+    // Call the Google Apps Script function
+    google.script.run
+        .withSuccessHandler(onDataLoadSuccess)
+        .withFailureHandler(onDataLoadError)
+        .getSheetData();
+}
+
+/**
+ * Handle successful data load
+ */
+function onDataLoadSuccess(result) {
+    console.log('Data loaded successfully:', result);
+    
+    // Reset refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    const connectionStatus = document.getElementById('connectionStatus');
+    
+    if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '🔄 Refresh Data';
+        refreshBtn.classList.remove('loading-skeleton');
+    }
+
+    if (connectionStatus) {
+        connectionStatus.className = 'status-indicator status-success';
+        connectionStatus.textContent = '🔗 Connected';
+    }
+
+    if (result.success && result.data) {
+        dashboardData = result;
+        filteredData = result.data;
+        
+        hideLoadingState();
+        showMainContent();
+        updateDashboard();
+        
+        // Show success notification
+        showNotification('Data updated successfully!', 'success');
+        
+    } else {
+        console.error('Data load failed:', result.error);
+        onDataLoadError(result.error || 'Unknown error occurred');
+    }
+}
+
+/**
+ * Handle data load error
+ */
+function onDataLoadError(error) {
+    console.error('Failed to load data:', error);
+    
+    // Reset refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    const connectionStatus = document.getElementById('connectionStatus');
+    
+    if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '🔄 Refresh Data';
+        refreshBtn.classList.remove('loading-skeleton');
+    }
+
+    if (connectionStatus) {
+        connectionStatus.className = 'status-indicator status-error';
+        connectionStatus.textContent = '❌ Disconnected';
+    }
+
+    hideLoadingState();
+    showErrorState(error);
+    
+    // Show error notification
+    showNotification('Failed to load data: ' + error, 'error');
+}
+
+/**
+ * Update the entire dashboard with loaded data
+ */
+function updateDashboard() {
+    if (!dashboardData) return;
+
+    updateLastUpdated();
+    updateKPICards();
+    updateHebrewCalendarInfo();
+    updateCharts();
+    updateTable();
+    updateFooterInfo();
+}
+
+/**
+ * Update last updated time
+ */
+function updateLastUpdated() {
+    const lastUpdatedEl = document.getElementById('lastUpdatedTime');
+    if (lastUpdatedEl && dashboardData.metadata) {
+        const date = new Date(dashboardData.metadata.lastUpdated);
+        lastUpdatedEl.textContent = date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+}
+
+/**
+ * Update KPI cards
+ */
+function updateKPICards() {
+    const kpiGrid = document.getElementById('kpiGrid');
+    if (!kpiGrid || !dashboardData.stats) return;
+
+    const stats = dashboardData.stats;
+    
+    kpiGrid.innerHTML = `
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Total Donations</div>
+                <div class="kpi-icon">📊</div>
+            </div>
+            <div class="kpi-value">${formatNumber(stats.totalDonations)}</div>
+            <div class="kpi-description">Total donations received</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Total Amount</div>
+                <div class="kpi-icon">💰</div>
+            </div>
+            <div class="kpi-value">${formatCurrency(stats.totalAmount)}</div>
+            <div class="kpi-description">Total amount raised</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Unique Donors</div>
+                <div class="kpi-icon">👥</div>
+            </div>
+            <div class="kpi-value">${formatNumber(stats.totalDonors)}</div>
+            <div class="kpi-description">Unique donors</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Average Donation</div>
+                <div class="kpi-icon">📈</div>
+            </div>
+            <div class="kpi-value">${formatCurrency(stats.averageDonation)}</div>
+            <div class="kpi-description">Average donation amount</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Success Rate</div>
+                <div class="kpi-icon">✅</div>
+            </div>
+            <div class="kpi-value">${formatPercentage(stats.successRate)}</div>
+            <div class="kpi-description">Successful payments</div>
+        </div>
+    `;
+}
+
+/**
+ * Update Hebrew calendar info
+ */
+function updateHebrewCalendarInfo() {
+    const calendarEl = document.getElementById('hebrewCalendarInfo');
+    if (!calendarEl) return;
+
+    // Get Hebrew calendar info
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                calendarEl.innerHTML = `
+                    <div class="calendar-date">${result.gregorianDate}</div>
+                    <div class="hebrew-date">${result.hebrewDate}</div>
+                    <div class="parsha-name">פרשת ${result.parsha}</div>
+                `;
+            }
+        })
+        .withFailureHandler(function(error) {
+            console.error('Failed to load Hebrew calendar info:', error);
+            calendarEl.innerHTML = `
+                <div class="calendar-date">${new Date().toLocaleDateString()}</div>
+                <div class="hebrew-date">Hebrew date unavailable</div>
+                <div class="parsha-name">Parsha information unavailable</div>
+            `;
+        })
+        .getHebrewCalendarInfo();
+}
+
+/**
+ * Update charts (enhanced with better visual design)
+ */
+function updateCharts() {
+    if (!dashboardData.stats) return;
+
+    // Monthly Chart
+    const monthlyChart = document.getElementById('monthlyChart');
+    if (monthlyChart) {
+        const monthlyData = dashboardData.stats.monthlyBreakdown;
+        if (monthlyData.length > 0) {
+            let chartHTML = '<div style="padding: 16px;">';
+            const maxAmount = Math.max(...monthlyData.map(item => item.amount));
+            
+            monthlyData.forEach(item => {
+                const percentage = (item.amount / maxAmount) * 100;
+                chartHTML += `
+                    <div class="data-point" style="margin-bottom: 12px;">
+                        <div>
+                            <div class="data-point-label hebrew-text">${item.month}</div>
+                            <div class="progress" style="width: 200px; margin-top: 4px;">
+                                <div class="progress-bar" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                        <div class="data-point-value">
+                            ${formatCurrency(item.amount)}
+                            <div style="font-size: 10px; color: var(--muted-foreground);">${item.count} donations</div>
+                        </div>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+            monthlyChart.innerHTML = chartHTML;
+        } else {
+            monthlyChart.innerHTML = '<div class="alert alert-warning">No monthly data available</div>';
+        }
+    }
+
+    // Parsha Chart
+    const parshaChart = document.getElementById('parshaChart');
+    if (parshaChart) {
+        const parshaData = dashboardData.stats.parshaBreakdown;
+        if (parshaData.length > 0) {
+            let chartHTML = '<div style="padding: 16px;">';
+            const maxAmount = Math.max(...parshaData.map(item => item.amount));
+            
+            parshaData.slice(0, 5).forEach(item => {
+                const percentage = (item.amount / maxAmount) * 100;
+                chartHTML += `
+                    <div class="data-point" style="margin-bottom: 12px;">
+                        <div>
+                            <div class="data-point-label hebrew-text">פרשת ${item.parsha}</div>
+                            <div class="progress" style="width: 180px; margin-top: 4px;">
+                                <div class="progress-bar" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                        <div class="data-point-value">
+                            ${formatCurrency(item.amount)}
+                            <div style="font-size: 10px; color: var(--muted-foreground);">${item.count} donations</div>
+                        </div>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+            parshaChart.innerHTML = chartHTML;
+        } else {
+            parshaChart.innerHTML = '<div class="alert alert-warning">No parsha data available</div>';
+        }
+    }
+
+    // Campaign Chart
+    const campaignChart = document.getElementById('campaignChart');
+    if (campaignChart) {
+        const campaignData = dashboardData.stats.campaignBreakdown;
+        if (campaignData.length > 0) {
+            let chartHTML = '<div style="padding: 16px;">';
+            const maxAmount = Math.max(...campaignData.map(item => item.amount));
+            
+            campaignData.forEach(item => {
+                const percentage = (item.amount / maxAmount) * 100;
+                chartHTML += `
+                    <div class="data-point" style="margin-bottom: 12px;">
+                        <div>
+                            <div class="data-point-label hebrew-text">${item.campaign}</div>
+                            <div class="progress" style="width: 200px; margin-top: 4px;">
+                                <div class="progress-bar" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                        <div class="data-point-value">
+                            ${formatCurrency(item.amount)}
+                            <div style="font-size: 10px; color: var(--muted-foreground);">${item.count} donations</div>
+                        </div>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+            campaignChart.innerHTML = chartHTML;
+        } else {
+            campaignChart.innerHTML = '<div class="alert alert-warning">No campaign data available</div>';
+        }
+    }
+}
+
+/**
+ * Update the donations table
+ */
+function updateTable() {
+    if (!dashboardData.data) return;
+
+    // Update filter options
+    updateFilterOptions();
+    
+    // Apply current filters
+    filterTable();
+}
+
+/**
+ * Update filter options
+ */
+function updateFilterOptions() {
+    const filterSelect = document.getElementById('filterSelect');
+    if (!filterSelect || !dashboardData.data) return;
+
+    // Get unique campaigns
+    const campaigns = [...new Set(dashboardData.data.map(item => item['17. Campaign'] || 'Unknown'))];
+    
+    filterSelect.innerHTML = '<option value="">All Campaigns</option>';
+    campaigns.forEach(campaign => {
+        filterSelect.innerHTML += `<option value="${campaign}">${campaign}</option>`;
+    });
+}
+
+/**
+ * Filter and display table data
+ */
+function filterTable() {
+    if (!dashboardData.data) return;
+
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const selectedCampaign = document.getElementById('filterSelect')?.value || '';
+
+    // Filter data
+    filteredData = dashboardData.data.filter(item => {
+        const matchesSearch = !searchTerm || 
+            Object.values(item).some(value => 
+                String(value).toLowerCase().includes(searchTerm)
+            );
+        
+        const matchesCampaign = !selectedCampaign || 
+            (item['17. Campaign'] === selectedCampaign);
+        
+        return matchesSearch && matchesCampaign;
+    });
+
+    renderTable();
+}
+
+/**
+ * Render the donations table
+ */
+function renderTable() {
+    const tableBody = document.querySelector('#donationsTable tbody');
+    const tableInfo = document.getElementById('tableInfo');
+    
+    if (!tableBody || !filteredData) return;
+
+    // Clear existing rows
+    tableBody.innerHTML = '';
+
+    // Add filtered rows with enhanced styling
+    filteredData.forEach((item, index) => {
+        const row = tableBody.insertRow();
+        row.className = index % 2 === 0 ? 'table-row-even' : 'table-row-odd';
+        
+        const amount = parseFloat(item['13. Amount']) || 0;
+        const status = item['16. Status'] || 'Success';
+        
+        row.innerHTML = `
+            <td>${item['1. Receipt #'] || ''}</td>
+            <td>${item['2. Payment Date'] || ''}</td>
+            <td class="hebrew-text">${item['6. Full Hebrew Date (e.g., ג\' אב תשפ"ה)'] || ''}</td>
+            <td class="hebrew-text">${item['7. Parsha Name (Hebrew)'] || ''}</td>
+            <td class="hebrew-text">${item['11. Donor Jewish Name'] || ''}</td>
+            <td class="amount-cell">${formatCurrency(amount)}</td>
+            <td>${item['14. Payment Type'] || ''}</td>
+            <td class="hebrew-text">${item['17. Campaign'] || ''}</td>
+            <td>
+                <span class="badge ${status === 'Success' ? 'badge-success' : 'badge-destructive'}">
+                    ${status === 'Success' ? '✅ ' + status : '❌ ' + status}
+                </span>
+            </td>
+        `;
+        
+        // Add tooltip for Hebrew date
+        const hebrewDateCell = row.cells[2];
+        hebrewDateCell.classList.add('tooltip');
+        const fullHebrewFormat = item['8. Final Hebrew Format (weekday, parsha, date)'] || '';
+        if (fullHebrewFormat) {
+            hebrewDateCell.innerHTML += `<span class="tooltip-content">${fullHebrewFormat}</span>`;
+        }
+    });
+
+    // Update table info with more details
+    if (tableInfo) {
+        const total = dashboardData.data.length;
+        const filtered = filteredData.length;
+        const totalAmount = filteredData.reduce((sum, item) => sum + (parseFloat(item['13. Amount']) || 0), 0);
+        
+        tableInfo.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>${filtered === total ? `Showing all ${total} donations` : `Showing ${filtered} of ${total} donations`}</span>
+                <span class="badge badge-default">Total: ${formatCurrency(totalAmount)}</span>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Show notification to user
+ */
+function showNotification(message, type = 'success') {
+    // Remove existing notifications
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification alert alert-${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        min-width: 300px;
+        animation: slideIn 0.3s ease;
+    `;
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span>${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'} ${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 18px; cursor: pointer;">×</button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 5000);
+}
+
+/**
+ * Enhanced error handling
+ */
+function handleError(error, context = '') {
+    console.error(`Error in ${context}:`, error);
+    showNotification(`${context}: ${error}`, 'error');
+}
+
+/**
+ * Update footer information
+ */
+function updateFooterInfo() {
+    const dataSource = document.getElementById('dataSource');
+    const totalRecords = document.getElementById('totalRecords');
+
+    if (dataSource && dashboardData.metadata) {
+        dataSource.textContent = `Data from ${dashboardData.metadata.sheetName}`;
+    }
+
+    if (totalRecords && dashboardData.data) {
+        totalRecords.textContent = `${dashboardData.data.length} donations`;
+    }
+}
+
+/**
+ * Show loading state
+ */
+function showLoadingState() {
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('errorState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'none';
+}
+
+/**
+ * Show error state
+ */
+function showErrorState(error) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'flex';
+    document.getElementById('mainContent').style.display = 'none';
+    
+    const errorMessage = document.getElementById('errorMessage');
+    if (errorMessage) {
+        errorMessage.textContent = error || 'Failed to load data';
+    }
+}
+
+/**
+ * Show main content
+ */
+function showMainContent() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('mainContent').classList.add('fade-in');
+}
+
+/**
+ * Hide loading state
+ */
+function hideLoadingState() {
+    document.getElementById('loadingState').style.display = 'none';
+}
+
+/**
+ * Format currency values
+ */
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount || 0);
+}
+
+/**
+ * Format numbers with commas
+ */
+function formatNumber(num) {
+    return new Intl.NumberFormat('en-US').format(num || 0);
+}
+
+/**
+ * Format percentages
+ */
+function formatPercentage(num) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'percent',
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    }).format((num || 0) / 100);
+}
+
+// Add some debugging
+console.log('Dashboard JavaScript loaded successfully');
+
+// Test connection on load
+google.script.run
+    .withSuccessHandler(function(result) {
+        console.log('Connection test result:', result);
+    })
+    .withFailureHandler(function(error) {
+        console.error('Connection test failed:', error);
+    })
+    .testConnection();
+</script>
