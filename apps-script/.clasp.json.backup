@@ -1,0 +1,7 @@
+{
+  "scriptId": "",
+  "rootDir": "./",
+  "projectId": "",
+  "fileExtension": "js",
+  "filePushOrder": ["appsscript.json", "Code.js"]
+}

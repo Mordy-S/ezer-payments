@@ -1,0 +1,496 @@
+/**
+ * JavaScript for Donations Dashboard
+ * Handles data loading, UI updates, and interactions
+ */
+
+// Global variables
+let dashboardData = null;
+let filteredData = null;
+let currentSort = { column: null, direction: 'asc' };
+
+// Initialize dashboard when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard initializing...');
+    initializeDashboard();
+    setupEventListeners();
+});
+
+/**
+ * Initialize the dashboard
+ */
+function initializeDashboard() {
+    showLoadingState();
+    loadDashboardData();
+}
+
+/**
+ * Setup event listeners
+ */
+function setupEventListeners() {
+    // Refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            console.log('Refresh clicked');
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '🔄 Loading...';
+            loadDashboardData();
+        });
+    }
+
+    // Retry button
+    const retryBtn = document.getElementById('retryBtn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', function() {
+            console.log('Retry clicked');
+            initializeDashboard();
+        });
+    }
+
+    // Search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterTable();
+        });
+    }
+
+    // Filter select
+    const filterSelect = document.getElementById('filterSelect');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', function() {
+            filterTable();
+        });
+    }
+}
+
+/**
+ * Load dashboard data from Google Sheets
+ */
+function loadDashboardData() {
+    console.log('Loading dashboard data...');
+    
+    // Call the Google Apps Script function
+    google.script.run
+        .withSuccessHandler(onDataLoadSuccess)
+        .withFailureHandler(onDataLoadError)
+        .getSheetData();
+}
+
+/**
+ * Handle successful data load
+ */
+function onDataLoadSuccess(result) {
+    console.log('Data loaded successfully:', result);
+    
+    // Reset refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '🔄 Refresh Data';
+    }
+
+    if (result.success && result.data) {
+        dashboardData = result;
+        filteredData = result.data;
+        
+        hideLoadingState();
+        showMainContent();
+        updateDashboard();
+        
+    } else {
+        console.error('Data load failed:', result.error);
+        onDataLoadError(result.error || 'Unknown error occurred');
+    }
+}
+
+/**
+ * Handle data load error
+ */
+function onDataLoadError(error) {
+    console.error('Failed to load data:', error);
+    
+    // Reset refresh button
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '🔄 Refresh Data';
+    }
+
+    hideLoadingState();
+    showErrorState(error);
+}
+
+/**
+ * Update the entire dashboard with loaded data
+ */
+function updateDashboard() {
+    if (!dashboardData) return;
+
+    updateLastUpdated();
+    updateKPICards();
+    updateHebrewCalendarInfo();
+    updateCharts();
+    updateTable();
+    updateFooterInfo();
+}
+
+/**
+ * Update last updated time
+ */
+function updateLastUpdated() {
+    const lastUpdatedEl = document.getElementById('lastUpdatedTime');
+    if (lastUpdatedEl && dashboardData.metadata) {
+        const date = new Date(dashboardData.metadata.lastUpdated);
+        lastUpdatedEl.textContent = date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+}
+
+/**
+ * Update KPI cards
+ */
+function updateKPICards() {
+    const kpiGrid = document.getElementById('kpiGrid');
+    if (!kpiGrid || !dashboardData.stats) return;
+
+    const stats = dashboardData.stats;
+    
+    kpiGrid.innerHTML = `
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Total Donations</div>
+                <div class="kpi-icon">📊</div>
+            </div>
+            <div class="kpi-value">${formatNumber(stats.totalDonations)}</div>
+            <div class="kpi-description">Total donations received</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Total Amount</div>
+                <div class="kpi-icon">💰</div>
+            </div>
+            <div class="kpi-value">${formatCurrency(stats.totalAmount)}</div>
+            <div class="kpi-description">Total amount raised</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Unique Donors</div>
+                <div class="kpi-icon">👥</div>
+            </div>
+            <div class="kpi-value">${formatNumber(stats.totalDonors)}</div>
+            <div class="kpi-description">Unique donors</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Average Donation</div>
+                <div class="kpi-icon">📈</div>
+            </div>
+            <div class="kpi-value">${formatCurrency(stats.averageDonation)}</div>
+            <div class="kpi-description">Average donation amount</div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-title">Success Rate</div>
+                <div class="kpi-icon">✅</div>
+            </div>
+            <div class="kpi-value">${formatPercentage(stats.successRate)}</div>
+            <div class="kpi-description">Successful payments</div>
+        </div>
+    `;
+}
+
+/**
+ * Update Hebrew calendar info
+ */
+function updateHebrewCalendarInfo() {
+    const calendarEl = document.getElementById('hebrewCalendarInfo');
+    if (!calendarEl) return;
+
+    // Get Hebrew calendar info
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                calendarEl.innerHTML = `
+                    <div class="calendar-date">${result.gregorianDate}</div>
+                    <div class="hebrew-date">${result.hebrewDate}</div>
+                    <div class="parsha-name">פרשת ${result.parsha}</div>
+                `;
+            }
+        })
+        .withFailureHandler(function(error) {
+            console.error('Failed to load Hebrew calendar info:', error);
+            calendarEl.innerHTML = `
+                <div class="calendar-date">${new Date().toLocaleDateString()}</div>
+                <div class="hebrew-date">Hebrew date unavailable</div>
+                <div class="parsha-name">Parsha information unavailable</div>
+            `;
+        })
+        .getHebrewCalendarInfo();
+}
+
+/**
+ * Update charts (simplified for Apps Script)
+ */
+function updateCharts() {
+    if (!dashboardData.stats) return;
+
+    // Monthly Chart
+    const monthlyChart = document.getElementById('monthlyChart');
+    if (monthlyChart) {
+        const monthlyData = dashboardData.stats.monthlyBreakdown;
+        if (monthlyData.length > 0) {
+            let chartHTML = '<div style="padding: 16px;">';
+            monthlyData.forEach(item => {
+                chartHTML += `
+                    <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span class="hebrew-text">${item.month}</span>
+                        <span>${formatCurrency(item.amount)} (${item.count})</span>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+            monthlyChart.innerHTML = chartHTML;
+        } else {
+            monthlyChart.innerHTML = '<p>No monthly data available</p>';
+        }
+    }
+
+    // Parsha Chart
+    const parshaChart = document.getElementById('parshaChart');
+    if (parshaChart) {
+        const parshaData = dashboardData.stats.parshaBreakdown;
+        if (parshaData.length > 0) {
+            let chartHTML = '<div style="padding: 16px;">';
+            parshaData.slice(0, 5).forEach(item => {
+                chartHTML += `
+                    <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span class="hebrew-text">${item.parsha}</span>
+                        <span>${formatCurrency(item.amount)} (${item.count})</span>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+            parshaChart.innerHTML = chartHTML;
+        } else {
+            parshaChart.innerHTML = '<p>No parsha data available</p>';
+        }
+    }
+
+    // Campaign Chart
+    const campaignChart = document.getElementById('campaignChart');
+    if (campaignChart) {
+        const campaignData = dashboardData.stats.campaignBreakdown;
+        if (campaignData.length > 0) {
+            let chartHTML = '<div style="padding: 16px;">';
+            campaignData.forEach(item => {
+                chartHTML += `
+                    <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span class="hebrew-text">${item.campaign}</span>
+                        <span>${formatCurrency(item.amount)} (${item.count})</span>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+            campaignChart.innerHTML = chartHTML;
+        } else {
+            campaignChart.innerHTML = '<p>No campaign data available</p>';
+        }
+    }
+}
+
+/**
+ * Update the donations table
+ */
+function updateTable() {
+    if (!dashboardData.data) return;
+
+    // Update filter options
+    updateFilterOptions();
+    
+    // Apply current filters
+    filterTable();
+}
+
+/**
+ * Update filter options
+ */
+function updateFilterOptions() {
+    const filterSelect = document.getElementById('filterSelect');
+    if (!filterSelect || !dashboardData.data) return;
+
+    // Get unique campaigns
+    const campaigns = [...new Set(dashboardData.data.map(item => item['17. Campaign'] || 'Unknown'))];
+    
+    filterSelect.innerHTML = '<option value="">All Campaigns</option>';
+    campaigns.forEach(campaign => {
+        filterSelect.innerHTML += `<option value="${campaign}">${campaign}</option>`;
+    });
+}
+
+/**
+ * Filter and display table data
+ */
+function filterTable() {
+    if (!dashboardData.data) return;
+
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const selectedCampaign = document.getElementById('filterSelect')?.value || '';
+
+    // Filter data
+    filteredData = dashboardData.data.filter(item => {
+        const matchesSearch = !searchTerm || 
+            Object.values(item).some(value => 
+                String(value).toLowerCase().includes(searchTerm)
+            );
+        
+        const matchesCampaign = !selectedCampaign || 
+            (item['17. Campaign'] === selectedCampaign);
+        
+        return matchesSearch && matchesCampaign;
+    });
+
+    renderTable();
+}
+
+/**
+ * Render the donations table
+ */
+function renderTable() {
+    const tableBody = document.querySelector('#donationsTable tbody');
+    const tableInfo = document.getElementById('tableInfo');
+    
+    if (!tableBody || !filteredData) return;
+
+    // Clear existing rows
+    tableBody.innerHTML = '';
+
+    // Add filtered rows
+    filteredData.forEach(item => {
+        const row = tableBody.insertRow();
+        row.innerHTML = `
+            <td>${item['1. Receipt #'] || ''}</td>
+            <td>${item['2. Payment Date'] || ''}</td>
+            <td class="hebrew-text">${item['6. Full Hebrew Date (e.g., ג\' אב תשפ"ה)'] || ''}</td>
+            <td class="hebrew-text">${item['11. Donor Jewish Name'] || ''}</td>
+            <td class="amount-cell">${formatCurrency(parseFloat(item['13. Amount']) || 0)}</td>
+            <td class="hebrew-text">${item['17. Campaign'] || ''}</td>
+            <td><span class="status-success">${item['16. Status'] || 'Success'}</span></td>
+        `;
+    });
+
+    // Update table info
+    if (tableInfo) {
+        const total = dashboardData.data.length;
+        const filtered = filteredData.length;
+        tableInfo.textContent = filtered === total 
+            ? `Showing all ${total} donations`
+            : `Showing ${filtered} of ${total} donations`;
+    }
+}
+
+/**
+ * Update footer information
+ */
+function updateFooterInfo() {
+    const dataSource = document.getElementById('dataSource');
+    const totalRecords = document.getElementById('totalRecords');
+
+    if (dataSource && dashboardData.metadata) {
+        dataSource.textContent = `Data from ${dashboardData.metadata.sheetName}`;
+    }
+
+    if (totalRecords && dashboardData.data) {
+        totalRecords.textContent = `${dashboardData.data.length} donations`;
+    }
+}
+
+/**
+ * Show loading state
+ */
+function showLoadingState() {
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('errorState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'none';
+}
+
+/**
+ * Show error state
+ */
+function showErrorState(error) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'flex';
+    document.getElementById('mainContent').style.display = 'none';
+    
+    const errorMessage = document.getElementById('errorMessage');
+    if (errorMessage) {
+        errorMessage.textContent = error || 'Failed to load data';
+    }
+}
+
+/**
+ * Show main content
+ */
+function showMainContent() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('mainContent').classList.add('fade-in');
+}
+
+/**
+ * Hide loading state
+ */
+function hideLoadingState() {
+    document.getElementById('loadingState').style.display = 'none';
+}
+
+/**
+ * Format currency values
+ */
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+    }).format(amount || 0);
+}
+
+/**
+ * Format numbers with commas
+ */
+function formatNumber(num) {
+    return new Intl.NumberFormat('en-US').format(num || 0);
+}
+
+/**
+ * Format percentages
+ */
+function formatPercentage(num) {
+    return new Intl.NumberFormat('en-US', {
+        style: 'percent',
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    }).format((num || 0) / 100);
+}
+
+// Add some debugging
+console.log('Dashboard JavaScript loaded successfully');
+
+// Test connection on load
+google.script.run
+    .withSuccessHandler(function(result) {
+        console.log('Connection test result:', result);
+    })
+    .withFailureHandler(function(error) {
+        console.error('Connection test failed:', error);
+    })
+    .testConnection();

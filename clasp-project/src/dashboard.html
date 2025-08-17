@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Donations Dashboard - Meshivat Nefesh</title>
+    
+    <!-- Include main styles -->
+    <?!= include('styles'); ?>
+    
+    <!-- Include additional shadcn/ui components -->
+    <?!= include('additional-components'); ?>
+    
+    <style>
+        /* CSS Variables for shadcn/ui theming - Enhanced */
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 240 10% 3.9%;
+            --card: 0 0% 100%;
+            --card-foreground: 240 10% 3.9%;
+            --popover: 0 0% 100%;
+            --popover-foreground: 240 10% 3.9%;
+            --primary: 240 5.9% 10%;
+            --primary-foreground: 0 0% 98%;
+            --secondary: 240 4.8% 95.9%;
+            --secondary-foreground: 240 5.9% 10%;
+            --muted: 240 4.8% 95.9%;
+            --muted-foreground: 240 3.8% 46.1%;
+            --accent: 240 4.8% 95.9%;
+            --accent-foreground: 240 5.9% 10%;
+            --destructive: 0 84.2% 60.2%;
+            --destructive-foreground: 0 0% 98%;
+            --border: 240 5.9% 90%;
+            --input: 240 5.9% 90%;
+            --ring: 240 5.9% 10%;
+            --radius: 0.5rem;
+            --success: 142 76% 36%;
+            --warning: 38 92% 50%;
+        }
+    </style>
+</head>
+<body class="dashboard-container">
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-state">
+        <div class="loading-spinner"></div>
+        <div>
+            <div class="text-lg font-semibold">📊 Loading Dashboard...</div>
+            <div style="margin-top: 16px;" class="text-muted">
+                Fetching real data from Google Sheets
+            </div>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="error-state" style="display: none;">
+        <div class="error-message">
+            <h3>❌ Error Loading Dashboard</h3>
+            <p id="errorMessage">Failed to load data from Google Sheets.</p>
+            <button id="retryBtn" class="btn btn-primary" style="margin-top: 16px;">
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Content -->
+    <div id="mainContent" style="display: none;">
+        <!-- Header with improved styling -->
+        <header class="dashboard-header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="header-left">
+                        <span class="header-icon">📊</span>
+                        <div>
+                            <h1 class="header-title">Donations Dashboard - Meshivat Nefesh</h1>
+                            <p class="header-subtitle">
+                                Live data from Google Sheets with Hebrew calendar integration
+                            </p>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <div class="last-updated-label">Last Updated</div>
+                        <div id="lastUpdatedTime" class="last-updated-time">Loading...</div>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                            <span id="connectionStatus" class="status-indicator status-pending">⏳ Connecting...</span>
+                            <button id="refreshBtn" class="btn btn-primary">
+                                🔄 Refresh Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content with enhanced layout -->
+        <main class="main-content">
+            <div class="container">
+                <!-- KPI Cards -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Key Performance Indicators</h2>
+                    <div id="kpiGrid" class="kpi-grid">
+                        <!-- KPI cards will be inserted here by JavaScript -->
+                    </div>
+                </section>
+
+                <!-- Hebrew Calendar Information -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Hebrew Calendar Information</h2>
+                    <div class="charts-grid">
+                        <div id="hebrewCalendarInfo" class="calendar-info">
+                            <!-- Hebrew calendar info will be inserted here by JavaScript -->
+                        </div>
+                        <div class="chart-container">
+                            <h3 class="chart-title">Top Torah Portions</h3>
+                            <div id="parshaChart" class="chart">
+                                Loading parsha data...
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Charts Section -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Analytics Overview</h2>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3 class="chart-title">Monthly Donations</h3>
+                            <div id="monthlyChart" class="chart">
+                                Loading monthly data...
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <h3 class="chart-title">Campaign Performance</h3>
+                            <div id="campaignChart" class="chart">
+                                Loading campaign data...
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Detailed Table -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Detailed Donation Records</h2>
+                    <div class="table-container">
+                        <div class="table-controls">
+                            <input id="searchInput" type="text" placeholder="Search donations..." class="search-input">
+                            <select id="filterSelect" class="filter-select">
+                                <option value="">All Campaigns</option>
+                            </select>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="donationsTable" class="donations-table">
+                                <thead>
+                                    <tr>
+                                        <th>Receipt #</th>
+                                        <th>Payment Date</th>
+                                        <th>Hebrew Date</th>
+                                        <th>Torah Portion</th>
+                                        <th>Donor Name</th>
+                                        <th>Amount</th>
+                                        <th>Payment Type</th>
+                                        <th>Campaign</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Table rows will be inserted here by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="tableInfo" class="table-info">
+                            Loading donation records...
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer with improved styling -->
+        <footer class="dashboard-footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div>
+                        <span id="dataSource">Live data from Google Sheets</span> | 
+                        <span id="totalRecords">0 donations</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="footer-badge">🔒 Secure</span>
+                        <span class="footer-badge">📊 Real-time</span>
+                        <span class="footer-badge">🎯 Accurate</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Include JavaScript -->
+    <?!= include('scripts'); ?>
+</body>
+</html>

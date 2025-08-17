@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Donations Dashboard - Meshivat Nefesh</title>
+    
+    <!-- Include CSS -->
+    <style>
+    <?= include('styles'); ?>
+    </style>
+</head>
+<body class="min-h-screen bg-background">
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="header-left">
+                        <span class="header-icon">📊</span>
+                        <div class="header-text">
+                            <h1 class="header-title">Donations Dashboard - Meshivat Nefesh</h1>
+                            <p class="header-subtitle">
+                                Comprehensive donation management dashboard with Hebrew calendar integration
+                            </p>
+                        </div>
+                    </div>
+                    <div class="header-right">
+                        <div class="last-updated">
+                            <div class="last-updated-label">Last Updated</div>
+                            <div id="lastUpdatedTime" class="last-updated-time">Loading...</div>
+                        </div>
+                        <button id="refreshBtn" class="refresh-btn">
+                            🔄 Refresh Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Loading dashboard data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error-state" style="display: none;">
+            <div class="error-message">
+                <h3>Error Loading Data</h3>
+                <p id="errorMessage">Failed to load data from Google Sheets</p>
+                <button id="retryBtn" class="retry-btn">Try Again</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main id="mainContent" class="main-content" style="display: none;">
+            <div class="container">
+                <!-- KPI Cards -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Key Performance Indicators</h2>
+                    <div id="kpiGrid" class="kpi-grid">
+                        <!-- KPI cards will be inserted here -->
+                    </div>
+                </section>
+
+                <!-- Hebrew Calendar Information -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Hebrew Calendar Information</h2>
+                    <div id="hebrewCalendarInfo" class="calendar-info">
+                        <!-- Calendar info will be inserted here -->
+                    </div>
+                </section>
+
+                <!-- Charts Section -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Data Analytics</h2>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3 class="chart-title">Monthly Breakdown</h3>
+                            <div id="monthlyChart" class="chart"></div>
+                        </div>
+                        <div class="chart-container">
+                            <h3 class="chart-title">Parsha Breakdown</h3>
+                            <div id="parshaChart" class="chart"></div>
+                        </div>
+                        <div class="chart-container">
+                            <h3 class="chart-title">Campaign Breakdown</h3>
+                            <div id="campaignChart" class="chart"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Detailed Table -->
+                <section class="dashboard-section">
+                    <h2 class="section-title">Detailed Data</h2>
+                    <div class="table-container">
+                        <div class="table-controls">
+                            <input type="text" id="searchInput" class="search-input" placeholder="Search donations...">
+                            <select id="filterSelect" class="filter-select">
+                                <option value="">All Campaigns</option>
+                            </select>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="donationsTable" class="donations-table">
+                                <thead>
+                                    <tr>
+                                        <th>Receipt #</th>
+                                        <th>Date</th>
+                                        <th>Hebrew Date</th>
+                                        <th>Donor</th>
+                                        <th>Amount</th>
+                                        <th>Campaign</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Table rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="tableInfo" class="table-info">
+                            <!-- Table information will be inserted here -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-left">
+                        <span id="dataSource">Data from Google Sheets</span> | 
+                        <span id="totalRecords">0 donations</span>
+                    </div>
+                    <div class="footer-right">
+                        <span class="footer-badge">🔒 Secure</span>
+                        <span class="footer-badge">📊 Real-time</span>
+                        <span class="footer-badge">🎯 Accurate</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Include JavaScript -->
+    <script>
+    <?= include('scripts'); ?>
+    </script>
+</body>
+</html>
